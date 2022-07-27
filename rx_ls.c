@@ -2,15 +2,18 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define FORMAT_STR "la"
 
 struct cmd_options
 {
-    const char **m_dir_names;
-    size_t m_dir_count;
+    const char **m_paths;
+    size_t m_path_count;
     uint32_t m_l:1;     // -l flag
     uint32_t m_a:1;     // -a flag
 };
@@ -43,45 +46,64 @@ struct cmd_options parse_cmd_options(int argc, char *argv[])
         return options;
     }
 
-    size_t dir_count = argc - optind;
-    options.m_dir_names = malloc(sizeof(const char*) * dir_count);
-    options.m_dir_count = dir_count;
+    size_t path_count = argc - optind;
+    options.m_paths = malloc(sizeof(const char*) * path_count);
+    options.m_path_count = path_count;
     // The rest are directories or files
-    for (size_t i = 0; i < dir_count; ++i)
+    for (size_t i = 0; i < path_count; ++i)
     {
-        options.m_dir_names[i] = argv[optind++];
+        options.m_paths[i] = argv[optind++];
     }
     return options;
 }
 
+// fd, file_type - out variables
+bool exists(const char *path, int *fd, mode_t *file_type)
+{
+    *fd = open(path, O_RDONLY);
+   
+    struct stat buf = {0};
+    if(fstat(*fd, &buf) == -1)
+    {
+        return false;
+    }
+
+    *file_type = buf.st_mode;
+
+    return true;
+}
+
+int pstrcmp( const void *a, const void *b )
+{
+    return strcmp( *(const char**)a, *(const char**)b );
+}
+
+void sort_strings(const char **arr, size_t size)
+{
+    qsort(arr, size, sizeof(const char*), pstrcmp);
+}
+
 int main(int argc, char *argv[])
 {
-    /*const char* dir_name = 
-        (argc > 1) ? argv[1] : ".";
-
-    DIR *dir = opendir(dir_name);
-    if(dir == NULL)
-    {
-        fprintf(stderr,
-                "cannot access '%s': No such directory\n", dir_name);
-        return 1;
-    }
-
-    struct dirent *directory;
-    while((directory = readdir(dir)) != NULL)
-    {
-        printf("%s ", directory->d_name);
-    }
-    putchar('\n');
-    int temp_close = closedir(dir);
-    if(temp_close == -1)
-    {
-        fprintf(stderr,
-        "Error closing directory %s\n", dir_name);
-        return 1;
-    } */
-
     struct cmd_options options = parse_cmd_options(argc, argv);
+
+    sort_strings(options.m_paths, options.m_path_count);
+    for(size_t i = 0; i < options.m_path_count; ++i)
+    {
+        int fd;
+        mode_t file_type;
+
+        if(!exists(options.m_paths[i], &fd, &file_type))
+        {
+            fprintf(stderr,
+                    "rx_ls: cannot access '%s': No such file or directory\n",
+                    options.m_paths[i]);
+            continue;
+        }
+
+        printf("All good! %s\n", options.m_paths[i]);
+    }
+    free(options.m_paths);
 
     return 0;
 }
