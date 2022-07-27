@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define FORMAT_STR "la"
 
@@ -75,7 +76,22 @@ bool exists(const char *path, int *fd, mode_t *file_type)
 
 int pstrcmp( const void *a, const void *b )
 {
-    return strcmp( *(const char**)a, *(const char**)b );
+    const char *str_a = *(const char**)a;
+    const char *str_b = *(const char**)b;
+
+    while(*str_a != 0 && *str_b != 0)
+    {
+        if(tolower(*str_a) < tolower(*str_b)) return -1;
+        else if(tolower(*str_a) > tolower(*str_b)) return 1;
+        
+        ++str_a;
+        ++str_b;
+    }
+
+    if(*str_a == 0 && *str_b == 0) return 0;
+
+    if(*str_a == 0) return -1;
+    else return 1;
 }
 
 void sort_strings(const char **arr, size_t size)
