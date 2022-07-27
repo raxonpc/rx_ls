@@ -7,15 +7,10 @@
 
 #define FORMAT_STR "la"
 
-struct dir_list
-{
-    struct dir_list *m_next;
-    const char *m_name;
-};
-
 struct cmd_options
 {
-    struct dir_list *m_head;
+    const char **m_dir_names;
+    size_t m_dir_count;
     uint32_t m_l:1;     // -l flag
     uint32_t m_a:1;     // -a flag
 };
@@ -48,15 +43,13 @@ struct cmd_options parse_cmd_options(int argc, char *argv[])
         return options;
     }
 
-    struct dir_list **it = &options.m_head;
-    
+    size_t dir_count = argc - optind;
+    options.m_dir_names = malloc(sizeof(const char*) * dir_count);
+    options.m_dir_count = dir_count;
     // The rest are directories or files
-    for ( ; optind < argc; optind++)
+    for (size_t i = 0; i < dir_count; ++i)
     {
-        *it = malloc(sizeof(struct dir_list));
-        (*it)->m_name = argv[optind];
-        (*it)->m_next = NULL;
-        it = &(*it)->m_next;
+        options.m_dir_names[i] = argv[optind++];
     }
     return options;
 }
