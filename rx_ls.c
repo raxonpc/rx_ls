@@ -134,6 +134,23 @@ void fd_arr_free(struct fd_arr *fd_arr)
 
 void list_files(const struct fd_arr *file_arr, const struct flags flags)
 {
+    for(size_t i = 0; i < file_arr->m_size; ++i)
+    {
+        if(!flags.m_a && file_arr->m_names[i][0] == '.')
+        {
+            continue;
+        }
+        
+        if(flags.m_l)
+        {
+            printf("%s\n", file_arr->m_names[i]);
+        }
+        else
+        {
+            printf("%s ", file_arr->m_names[i]);
+        }
+    }
+    putchar('\n');
 }
 
 
@@ -168,6 +185,8 @@ int main(int argc, char *argv[])
             fd_arr_push(&file_arr, options.m_paths[i], fd);
         }
     }
+
+    list_files(&file_arr, options.m_flags);
 
     fd_arr_free(&dir_arr);
     fd_arr_free(&file_arr);
