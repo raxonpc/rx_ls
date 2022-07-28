@@ -1,22 +1,27 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include <dirent.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-#define FORMAT_STR "la"
+#define SUPPORTED_FLAGS "la"
+
+struct flags
+{
+    uint32_t m_a:1;     // -a flag
+    uint32_t m_l:1;     // -l flag
+};
 
 struct cmd_options
 {
     const char **m_paths;
     size_t m_path_count;
-    uint32_t m_l:1;     // -l flag
-    uint32_t m_a:1;     // -a flag
+    struct flags m_flags;
 };
 
 struct cmd_options parse_cmd_options(int argc, char *argv[])
@@ -25,15 +30,15 @@ struct cmd_options parse_cmd_options(int argc, char *argv[])
 
     int errflg = 0;
     int c;
-    while((c = getopt(argc, argv, FORMAT_STR)) != -1)
+    while((c = getopt(argc, argv, SUPPORTED_FLAGS)) != -1)
     {
         switch(c)
         {
         case 'l':
-            options.m_l = 1;
+            options.m_flags.m_l = 1;
             break;
         case 'a':
-            options.m_a = 1;
+            options.m_flags.m_a = 1;
             break;
         case '?':
             ++errflg;
@@ -58,22 +63,7 @@ struct cmd_options parse_cmd_options(int argc, char *argv[])
     return options;
 }
 
-// fd, file_type - out variables
-bool exists(const char *path, int *fd, mode_t *file_type)
-{
-    *fd = open(path, O_RDONLY);
-   
-    struct stat buf = {0};
-    if(fstat(*fd, &buf) == -1)
-    {
-        return false;
-    }
-
-    *file_type = buf.st_mode;
-
-    return true;
-}
-
+// lexicographical comparison
 int pstrcmp( const void *a, const void *b )
 {
     const char *str_a = *(const char**)a;
@@ -99,16 +89,60 @@ void sort_strings(const char **arr, size_t size)
     qsort(arr, size, sizeof(const char*), pstrcmp);
 }
 
+
+// fd, file_type - out variables
+bool exists(const char *path, int *fd, mode_t *file_type)
+{
+    *fd = open(path, O_RDONLY);
+   
+    struct stat buf = {0};
+    if(fstat(*fd, &buf) == -1)
+    {
+        return false;
+    }
+
+    *file_type = buf.st_mode;
+
+    return true;
+}
+
+struct fd_arr
+{
+    int *m_arr;
+    size_t m_size;
+};
+
+struct fd_arr init_fd_arr(size_t init_size)
+{
+    struct fd_arr output;
+
+    output.m_arr = malloc(sizeof(int) * init_size);
+    memset(output.m_arr, -1, sizeof(int) * init_size);
+    output.m_size = 0;
+
+    return output;
+}
+
+void fd_arr_push(struct fd_arr *fd_arr, int fd)
+{
+    fd_arr->m_arr[fd_arr->m_size++] = fd;
+}
+
+
 int main(int argc, char *argv[])
 {
     struct cmd_options options = parse_cmd_options(argc, argv);
 
+
     sort_strings(options.m_paths, options.m_path_count);
+
+    struct fd_arr file_arr = init_fd_arr(options.m_path_count);
+    struct fd_arr dir_arr = init_fd_arr(options.m_path_count);
+
     for(size_t i = 0; i < options.m_path_count; ++i)
     {
         int fd;
         mode_t file_type;
-
         if(!exists(options.m_paths[i], &fd, &file_type))
         {
             fprintf(stderr,
@@ -117,8 +151,20 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        printf("All good! %s\n", options.m_paths[i]);
+        if(file_type & S_IFDIR)
+        {
+            fd_arr_push(&dir_arr, fd);
+            printf("%s: Directory!!!\n", options.m_paths[i]);
+        }
+        else
+        {
+            fd_arr_push(&file_arr, fd);
+            printf("%s: Not a directory!!!\n", options.m_paths[i]);
+        }
     }
+    
+    free(file_arr.m_arr);
+    free(dir_arr.m_arr);
     free(options.m_paths);
 
     return 0;
