@@ -11,6 +11,7 @@
 #include <strings.h>
 
 #define SUPPORTED_FLAGS "la"
+#define INVALID_FILE_DESCRIPTOR -1
 
 struct flags
 {
@@ -97,6 +98,7 @@ bool exists(const char *path, int *fd, mode_t *file_type)
 
 struct fd_arr
 {
+    const char **m_names;
     int *m_arr;
     size_t m_size;
 };
@@ -105,16 +107,33 @@ struct fd_arr init_fd_arr(size_t init_size)
 {
     struct fd_arr output;
 
+    output.m_names = malloc(sizeof(const char*) * init_size);
     output.m_arr = malloc(sizeof(int) * init_size);
-    memset(output.m_arr, -1, sizeof(int) * init_size);
+    for(size_t i = 0; i < init_size; ++i)
+    {
+        output.m_names[i] = NULL;
+        output.m_arr[i] = INVALID_FILE_DESCRIPTOR;
+    }
+
     output.m_size = 0;
 
     return output;
 }
 
-void fd_arr_push(struct fd_arr *fd_arr, int fd)
+void fd_arr_push(struct fd_arr *fd_arr, const char *file_name, int fd)
 {
+    fd_arr->m_names[fd_arr->m_size] = file_name;
     fd_arr->m_arr[fd_arr->m_size++] = fd;
+}
+
+void fd_arr_free(struct fd_arr *fd_arr)
+{
+    free(fd_arr->m_names);
+    free(fd_arr->m_arr);
+}
+
+void list_files(const struct fd_arr *file_arr, const struct flags flags)
+{
 }
 
 
@@ -142,18 +161,17 @@ int main(int argc, char *argv[])
 
         if(file_type & S_IFDIR)
         {
-            fd_arr_push(&dir_arr, fd);
-            printf("%s: Directory!!!\n", options.m_paths[i]);
+            fd_arr_push(&dir_arr, options.m_paths[i], fd);
         }
         else
         {
-            fd_arr_push(&file_arr, fd);
-            printf("%s: Not a directory!!!\n", options.m_paths[i]);
+            fd_arr_push(&file_arr, options.m_paths[i], fd);
         }
     }
-    
-    free(file_arr.m_arr);
-    free(dir_arr.m_arr);
+
+    fd_arr_free(&dir_arr);
+    fd_arr_free(&file_arr);
+
     free(options.m_paths);
 
     return 0;
