@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <strings.h>
 
 #define SUPPORTED_FLAGS "la"
 
@@ -69,19 +70,7 @@ int pstrcmp( const void *a, const void *b )
     const char *str_a = *(const char**)a;
     const char *str_b = *(const char**)b;
 
-    while(*str_a != 0 && *str_b != 0)
-    {
-        if(tolower(*str_a) < tolower(*str_b)) return -1;
-        else if(tolower(*str_a) > tolower(*str_b)) return 1;
-        
-        ++str_a;
-        ++str_b;
-    }
-
-    if(*str_a == 0 && *str_b == 0) return 0;
-
-    if(*str_a == 0) return -1;
-    else return 1;
+    return strcasecmp(str_a, str_b);
 }
 
 void sort_strings(const char **arr, size_t size)
